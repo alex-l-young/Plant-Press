@@ -19,6 +19,7 @@ struct ContentView: View {
     @State private var showingShareSheet = false
     @State private var isExporting = false
     @State private var showingExportOptions = false
+    @State private var showingAbout = false
     
     enum SortOption {
         case alphabetical
@@ -83,6 +84,13 @@ struct ContentView: View {
                             Text("Export")
                         }
                         
+                        Spacer() // Pushes the next button to the far right
+                                            
+                        // NEW: The info button
+                        Button(action: { showingAbout = true }) {
+                            Image(systemName: "info.circle")
+                        }
+                        
                         Spacer()
                         
                         Menu {
@@ -94,6 +102,11 @@ struct ContentView: View {
                         }
                     }
                 }
+                // NEW: Presents the About page
+                .sheet(isPresented: $showingAbout) {
+                    AboutView()
+                }
+                
                 .sheet(isPresented: $showingAddSiteSheet) {
                     SiteCreationView()
                 }
