@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct TrilliumApp: App {
@@ -13,5 +14,7 @@ struct TrilliumApp: App {
         WindowGroup {
             ContentView()
         }
+        // Updated to PlantObservation.self
+        .modelContainer(for: [Site.self, PlantObservation.self])
     }
 }
