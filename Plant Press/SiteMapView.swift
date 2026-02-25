@@ -25,7 +25,7 @@ struct SiteMapView: View {
         }
         // computes the style on the fly based on the boolean
         .mapStyle(isSatelliteView ? .imagery : .standard)
-        .overlay(alignment: .topTrailing) {
+        .overlay(alignment: .bottomTrailing) {
             Button(action: {
                 isSatelliteView.toggle()
             }) {

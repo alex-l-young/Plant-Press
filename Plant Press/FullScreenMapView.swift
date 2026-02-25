@@ -34,6 +34,7 @@ struct FullScreenMapView: View {
                 }
                 .overlay(alignment: .bottomTrailing) {
                     VStack(spacing: 12) {
+                        // 1. Layer Toggle
                         Button(action: {
                             isSatelliteView.toggle()
                         }) {
@@ -44,6 +45,7 @@ struct FullScreenMapView: View {
                                 .shadow(radius: 4)
                         }
                         
+                        // 2. Zoom to Site Button
                         if let siteLoc = siteLocation {
                             Button(action: {
                                 withAnimation {
@@ -58,17 +60,14 @@ struct FullScreenMapView: View {
                             }
                         }
                         
-                        // FIXED: Location Button
+                        // 3. Zoom to User Button
                         Button(action: {
-                            // 1. If we already know the user's location, instantly snap the camera and move the pin
                             if let userLoc = locationManager.userLocation {
                                 withAnimation {
                                     cameraPosition = .region(MKCoordinateRegion(center: userLoc, span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)))
                                 }
                                 localPinLocation = userLoc
                             }
-                            
-                            // 2. Always request a fresh GPS update in case they've walked away
                             locationManager.requestPermission()
                             locationManager.requestLocation()
                         }) {

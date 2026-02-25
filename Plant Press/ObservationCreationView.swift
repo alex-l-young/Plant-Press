@@ -24,9 +24,10 @@ struct ObservationCreationView: View {
     @State private var selectedPhotoData: [Data] = []
     @State private var isEditingPhotos: Bool = false
     
-    // NEW: Camera state variables
+    // Camera & Library state variables
     @State private var showingCamera = false
     @State private var cameraImage: UIImage? = nil
+    @State private var showingPhotoLibrary = false // NEW: Safely triggers the photo picker
     
     @State private var showingMapPicker = false
     
@@ -191,12 +192,12 @@ struct ObservationCreationView: View {
                                 .padding(.trailing, isEditingPhotos ? 8 : 0)
                             }
                             
-                            // NEW: Menu for Camera or Library
+                            // UPDATED: Menu uses standard buttons to trigger states
                             Menu {
                                 Button(action: { showingCamera = true }) {
                                     Label("Take Photo", systemImage: "camera")
                                 }
-                                PhotosPicker(selection: $newSelectedItems, matching: .images) {
+                                Button(action: { showingPhotoLibrary = true }) {
                                     Label("Choose from Library", systemImage: "photo.on.rectangle")
                                 }
                             } label: {
@@ -252,24 +253,22 @@ struct ObservationCreationView: View {
                 let siteLoc = (site.latitude != nil && site.longitude != nil) ? CLLocationCoordinate2D(latitude: site.latitude!, longitude: site.longitude!) : nil
                 FullScreenMapView(pinLocation: $pinLocation, siteLocation: siteLoc)
             }
-            // NEW: Presents the Camera
             .fullScreenCover(isPresented: $showingCamera) {
                 ImagePicker(selectedImage: $cameraImage)
                     .ignoresSafeArea()
             }
-            // NEW: Process Camera Image
+            // NEW: The safe way to present the photo library in iOS
+            .photosPicker(isPresented: $showingPhotoLibrary, selection: $newSelectedItems, matching: .images)
             .onChange(of: cameraImage) { oldImage, newImage in
                 if let image = newImage {
-                    // Compress slightly to save device storage
                     if let data = image.jpegData(compressionQuality: 0.8) {
                         selectedImages.append(image)
                         selectedPhotoData.append(data)
                     }
-                    cameraImage = nil // Reset for next time
+                    cameraImage = nil
                     isEditingPhotos = false
                 }
             }
-            // Process Library Images
             .onChange(of: newSelectedItems) { oldItems, newItems in
                 Task {
                     for item in newItems {
@@ -345,14 +344,12 @@ struct ObservationCreationView: View {
     }
 }
 
-// NEW: The wrapper that brings the native Apple Camera into SwiftUI
 struct ImagePicker: UIViewControllerRepresentable {
     @Environment(\.presentationMode) private var presentationMode
     @Binding var selectedImage: UIImage?
     
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
-        // If the camera isn't available (like in the simulator), fall back to the photo library so it doesn't crash
         if UIImagePickerController.isSourceTypeAvailable(.camera) {
             picker.sourceType = .camera
         } else {
