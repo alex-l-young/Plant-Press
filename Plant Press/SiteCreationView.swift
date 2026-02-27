@@ -6,6 +6,8 @@ struct SiteCreationView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
+    @Query private var allSites: [Site]
+    
     var siteToEdit: Site?
     
     @State private var siteName: String = ""
@@ -16,33 +18,84 @@ struct SiteCreationView: View {
     @State private var selectedImage: UIImage? = nil
     @State private var thumbnailData: Data? = nil
     
-    // NEW: Controls the presentation of the full-screen map
+    // View States
     @State private var showingMapPicker = false
+    @State private var showingCamera = false
+    @State private var showingPhotoLibrary = false
+    
+    // Validation check for duplicates
+    var isDuplicateName: Bool {
+        let normalizedInput = siteName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalizedInput.isEmpty { return false }
+        
+        if let editingSite = siteToEdit, editingSite.name.lowercased() == normalizedInput {
+            return false
+        }
+        
+        return allSites.contains { $0.name.lowercased() == normalizedInput }
+    }
+    
+    var isFormValid: Bool {
+        let isNameEmpty = siteName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasLocation = pinLocation != nil
+        return !isNameEmpty && !isDuplicateName && hasLocation
+    }
     
     var body: some View {
         NavigationStack {
             Form {
                 Section(header: Text("Site Details")) {
                     TextField("Site Name", text: $siteName)
+                    
+                    if isDuplicateName {
+                        Text("A site with this name already exists.")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+                    
                     DatePicker("Creation Date & Time", selection: $creationDate)
                     Button("Now") { creationDate = Date() }
                         .foregroundColor(.blue)
                 }
                 
                 Section(header: Text("Site Photo (Optional)")) {
-                    PhotosPicker(selection: $selectedItem, matching: .images) {
-                        Label(selectedImage == nil ? "Add Thumbnail" : "Change Thumbnail", systemImage: "photo.circle")
-                    }
-                    if let image = selectedImage {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(height: 150)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    HStack {
+                        if let image = selectedImage {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 80, height: 80)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                // Tap image to remove
+                                .onTapGesture {
+                                    selectedImage = nil
+                                    thumbnailData = nil
+                                }
+                        }
+                        
+                        // The New Camera Menu
+                        Menu {
+                            Button(action: { showingCamera = true }) {
+                                Label("Take Photo", systemImage: "camera")
+                            }
+                            Button(action: { showingPhotoLibrary = true }) {
+                                Label("Choose from Library", systemImage: "photo.on.rectangle")
+                            }
+                        } label: {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [5]))
+                                    .foregroundColor(Color.gray.opacity(0.6))
+                                    .frame(width: 80, height: 80)
+                                
+                                Image(systemName: "plus")
+                                    .font(.largeTitle)
+                                    .foregroundColor(.gray)
+                            }
+                        }
                     }
                 }
                 
-                // REFACTORED: Location Section
                 Section(header: Text("Location")) {
                     if let pin = pinLocation {
                         Text("Lat: \(String(format: "%.5f", pin.latitude)), Lon: \(String(format: "%.5f", pin.longitude))")
@@ -63,8 +116,7 @@ struct SiteCreationView: View {
                             .frame(maxWidth: .infinity)
                             .bold()
                     }
-                    // REFACTORED: Require name and a pinLocation
-                    .disabled(siteName.trimmingCharacters(in: .whitespaces).isEmpty || pinLocation == nil)
+                    .disabled(!isFormValid)
                 }
             }
             .navigationTitle(siteToEdit == nil ? "New Site" : "Edit Site")
@@ -73,19 +125,26 @@ struct SiteCreationView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
-                // NEW: Top right save button
                 ToolbarItem(placement: .confirmationAction) {
                     Button(action: saveSite) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.title3)
-                            // We use the exact same validation logic as the bottom button
                     }
-                    .disabled(siteName.trimmingCharacters(in: .whitespaces).isEmpty || pinLocation == nil)
+                    .disabled(!isFormValid)
                 }
             }
-            // NEW: Launch the full-screen map
             .fullScreenCover(isPresented: $showingMapPicker) {
                 FullScreenMapView(pinLocation: $pinLocation)
+            }
+            .fullScreenCover(isPresented: $showingCamera) {
+                ImagePicker(selectedImage: $selectedImage)
+                    .ignoresSafeArea()
+            }
+            .photosPicker(isPresented: $showingPhotoLibrary, selection: $selectedItem, matching: .images)
+            .onChange(of: selectedImage) { oldImg, newImg in
+                if let img = newImg {
+                    thumbnailData = img.jpegData(compressionQuality: 0.8)
+                }
             }
             .onChange(of: selectedItem) { oldItem, newItem in
                 Task {
@@ -114,14 +173,14 @@ struct SiteCreationView: View {
     
     private func saveSite() {
         if let site = siteToEdit {
-            site.name = siteName
+            site.name = siteName.trimmingCharacters(in: .whitespacesAndNewlines)
             site.creationDate = creationDate
             site.latitude = pinLocation?.latitude
             site.longitude = pinLocation?.longitude
             site.thumbnailData = thumbnailData
         } else {
             let newSite = Site(
-                name: siteName,
+                name: siteName.trimmingCharacters(in: .whitespacesAndNewlines),
                 creationDate: creationDate,
                 latitude: pinLocation?.latitude,
                 longitude: pinLocation?.longitude,

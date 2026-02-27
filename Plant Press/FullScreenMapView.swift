@@ -103,15 +103,17 @@ struct FullScreenMapView: View {
             .onAppear {
                 localPinLocation = pinLocation
                 
+                // 1. If editing an existing pin, snap to it
                 if let pin = pinLocation {
                     cameraPosition = .region(MKCoordinateRegion(center: pin, span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)))
                 } else {
+                    // 2. FIXED: Otherwise, ALWAYS aggressively seek the user's location
                     locationManager.requestPermission()
                     locationManager.requestLocation()
                 }
             }
             .onChange(of: locationManager.userLocation) { oldLocation, newLocation in
-                // We keep this purely to handle the very first launch when the app gets GPS for the first time
+                // FIXED: Instantly zoom to the user the moment GPS is acquired (if no pin is set)
                 if let newLocation, localPinLocation == nil {
                     withAnimation {
                         cameraPosition = .region(MKCoordinateRegion(center: newLocation, span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)))
@@ -120,5 +122,12 @@ struct FullScreenMapView: View {
                 }
             }
         }
+    }
+}
+
+// Explicitly teaches Swift how to compare two coordinates so .onChange works
+extension CLLocationCoordinate2D: @retroactive Equatable {
+    public static func == (lhs: CLLocationCoordinate2D, rhs: CLLocationCoordinate2D) -> Bool {
+        return lhs.latitude == rhs.latitude && lhs.longitude == rhs.longitude
     }
 }

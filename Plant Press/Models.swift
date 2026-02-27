@@ -14,7 +14,7 @@ final class Site {
     var creationDate: Date
     var latitude: Double?
     var longitude: Double?
-    @Attribute(.externalStorage) var thumbnailData: Data?
+    @Attribute(.externalStorage) var thumbnailData: Data? // What do I do with this line?
     
     @Relationship(deleteRule: .cascade, inverse: \PlantObservation.site)
     var observations: [PlantObservation] = []
