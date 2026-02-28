@@ -92,37 +92,43 @@ struct SiteDetailView: View {
                 }
                 
                 ToolbarItemGroup(placement: .bottomBar) {
+                    // 1. Safari Link (Far Left)
                     Link(destination: URL(string: "https://newyork.plantatlas.usf.edu")!) {
                         Image(systemName: "safari")
                     }
                     
-                    Spacer()
-                    
-                    // UPDATED: Export Button
+                    // 2. Export Button (Mid Left)
                     Button(action: { showingExportOptions = true }) {
                         Image(systemName: "square.and.arrow.up")
                     }
+                    .confirmationDialog("Export Options", isPresented: $showingExportOptions, titleVisibility: .visible) {
+                        Button("Export Data Only (CSV)") {
+                            startExport(includePhotos: false)
+                        }
+                        Button("Export Data + Photos (Folder)") {
+                            startExport(includePhotos: true)
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    }
                     
-                    Spacer()
+                    // 3. THE PRIMARY ACTION: Centered and Enlarged
+                    Button(action: { showingAddObservationSheet = true }) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 36)) // Forces the icon to be significantly larger
+                            .foregroundColor(.white) // Ensures it uses your app's main color
+                    }
                     
+                    // 4. Map Button (Mid Right)
                     NavigationLink(destination: SiteMapView(site: site)) {
                         Image(systemName: "map")
                     }
                     
-                    Spacer()
-                    
+                    // 5. Sort Menu (Far Right)
                     Menu {
+                        Button("Time Created") { sortOption = .byTime }
                         Button("Alphabetical") { sortOption = .alphabetical }
-                        Button("Most Recent") { sortOption = .byTime }
                     } label: {
                         Image(systemName: "arrow.up.arrow.down")
-                    }
-                    
-                    Spacer()
-                    
-                    Button(action: { showingAddObservationSheet = true }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
                     }
                 }
             }
@@ -136,15 +142,6 @@ struct SiteDetailView: View {
                 if let url = exportURL {
                     ShareSheet(items: [url])
                 }
-            }
-            .confirmationDialog("Export Options", isPresented: $showingExportOptions, titleVisibility: .visible) {
-                Button("Export Data Only (CSV)") {
-                    startExport(includePhotos: false)
-                }
-                Button("Export Data + Photos (Folder)") {
-                    startExport(includePhotos: true)
-                }
-                Button("Cancel", role: .cancel) {}
             }
             
             // NEW: The Loading Overlay

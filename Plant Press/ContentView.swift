@@ -14,6 +14,7 @@ struct ContentView: View {
     
     @State private var showingAddSiteSheet = false
     @State private var sortOption: SortOption = .byTimeCreated
+    @State private var showingSortOptions = false
     
     // Export & Loading State
     @State private var exportURL: URL?
@@ -80,19 +81,23 @@ struct ContentView: View {
                     }
                     
                     ToolbarItemGroup(placement: .bottomBar) {
-                    Button(action: { showingExportOptions = true }) { // UPDATED
+                        Button(action: { showingExportOptions = true }) {
                             Image(systemName: "square.and.arrow.up")
                             Text("Export")
                         }
+                        .confirmationDialog("Export Options", isPresented: $showingExportOptions, titleVisibility: .visible) {
+                            Button("Export Data Only (CSV)") {
+                                startExport(includePhotos: false)
+                            }
+                            Button("Export Data + Photos (Folder)") {
+                                startExport(includePhotos: true)
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        }
                         
-                        Spacer() // Pushes the next button to the far right
-                                            
-                        // NEW: The info button
                         Button(action: { showingAbout = true }) {
                             Image(systemName: "info.circle")
                         }
-                        
-                        Spacer()
                         
                         Menu {
                             Button("Time Created") { sortOption = .byTimeCreated }
@@ -115,15 +120,6 @@ struct ContentView: View {
                     if let url = exportURL {
                         ShareSheet(items: [url])
                     }
-                }
-                .confirmationDialog("Export Options", isPresented: $showingExportOptions, titleVisibility: .visible) {
-                    Button("Export Data Only (CSV)") {
-                        startExport(includePhotos: false)
-                    }
-                    Button("Export Data + Photos (Folder)") {
-                        startExport(includePhotos: true)
-                    }
-                    Button("Cancel", role: .cancel) {}
                 }
 
                 // NEW: The Loading Overlay
