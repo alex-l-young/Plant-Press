@@ -4,12 +4,6 @@
 //
 //  Created by Alex Young on 2/24/26.
 //
-//
-//  ContentView.swift
-//  Trillium
-//
-//  Created by Alex Young on 2/24/26.
-//
 import SwiftUI
 import SwiftData
 import UIKit
@@ -19,7 +13,7 @@ struct ContentView: View {
     @Query private var sites: [Site]
     @Query private var checklists: [Checklist]
     
-    // NEW: Tab selection state
+    // Tab selection state
     enum TabSelection {
         case checklists
         case sites
@@ -27,7 +21,7 @@ struct ContentView: View {
     @State private var selectedTab: TabSelection = .checklists
     
     @State private var showingAddSiteSheet = false
-    @State private var showingAddChecklistSheet = false // NEW
+    @State private var showingAddChecklistSheet = false
     
     @State private var sortOption: SortOption = .byTimeCreated
     @State private var showingSortOptions = false
@@ -53,11 +47,9 @@ struct ContentView: View {
         }
     }
     
-    // NEW: Checklist sorting logic
     var sortedChecklists: [Checklist] {
         switch sortOption {
         case .alphabetical:
-            // Sorts checklists alphabetically by the associated site's name
             return checklists.sorted { ($0.site?.name ?? "") < ($1.site?.name ?? "") }
         case .byTimeCreated:
             return checklists.sorted { $0.creationDate > $1.creationDate }
@@ -67,7 +59,6 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // NEW: The segmented toggle bar
                 Picker("View Selection", selection: $selectedTab) {
                     Text("Checklists").tag(TabSelection.checklists)
                     Text("Sites").tag(TabSelection.sites)
@@ -98,7 +89,10 @@ struct ContentView: View {
                                         VStack(alignment: .leading) {
                                             Text(site.name)
                                                 .font(.headline)
-                                            // FIXED: Removed the date text as requested
+                                            // FIXED: Added the checklist count subheader
+                                            Text("\(site.checklists.count) checklist\(site.checklists.count == 1 ? "" : "s")")
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
                                         }
                                     }
                                 }
@@ -109,14 +103,25 @@ struct ContentView: View {
                             // --- CHECKLISTS LIST ---
                             ForEach(sortedChecklists) { checklist in
                                 NavigationLink(destination: ChecklistDetailView(checklist: checklist)) {
-                                    VStack(alignment: .leading) {
-                                        Text(checklist.creationDate.formatted(date: .abbreviated, time: .shortened))
-                                            .font(.headline)
+                                    // FIXED: Wrapped in an HStack to push the badge to the right
+                                    HStack {
+                                        VStack(alignment: .leading) {
+                                            Text(checklist.creationDate.formatted(date: .abbreviated, time: .shortened))
+                                                .font(.headline)
+                                            
+                                            Text(checklist.site?.name ?? "No Site Selected")
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                        }
                                         
-                                        // Shows the site name as the subtitle
-                                        Text(checklist.site?.name ?? "No Site Selected")
+                                        Spacer()
+                                        
+                                        // FIXED: Added the observation count badge
+                                        Text("\(checklist.observations.count)")
                                             .font(.subheadline)
-                                            .foregroundColor(.secondary)
+                                            .padding(8)
+                                            .background(Color.gray.opacity(0.2))
+                                            .clipShape(Circle())
                                     }
                                 }
                             }
@@ -136,7 +141,6 @@ struct ContentView: View {
                         }
                         
                         ToolbarItemGroup(placement: .bottomBar) {
-                            // Export button
                             Button(action: { showingExportOptions = true }) {
                                 Image(systemName: "square.and.arrow.up")
                             }
@@ -150,7 +154,6 @@ struct ContentView: View {
                                 Button("Cancel", role: .cancel) {}
                             }
                             
-                            // UPDATED: Dynamic Add button
                             Button(action: {
                                 if selectedTab == .sites {
                                     showingAddSiteSheet = true
@@ -163,7 +166,6 @@ struct ContentView: View {
                                     .foregroundColor(.accentColor)
                             }
                             
-                            // Sort button
                             Menu {
                                 Button("Time Created") { sortOption = .byTimeCreated }
                                 Button("Alphabetical") { sortOption = .alphabetical }
@@ -178,7 +180,6 @@ struct ContentView: View {
                     .sheet(isPresented: $showingAddSiteSheet) {
                         SiteCreationView()
                     }
-                    // NEW: Sheet for creating checklists
                     .sheet(isPresented: $showingAddChecklistSheet) {
                         ChecklistCreationView()
                     }
@@ -188,7 +189,6 @@ struct ContentView: View {
                         }
                     }
 
-                    // The Loading Overlay
                     if isExporting {
                         Color.black.opacity(0.4)
                             .ignoresSafeArea()
@@ -210,7 +210,6 @@ struct ContentView: View {
         }
     }
 
-    // UPDATED: Split the delete functions to handle both models cleanly
     private func deleteSites(offsets: IndexSet) {
         withAnimation {
             for index in offsets {

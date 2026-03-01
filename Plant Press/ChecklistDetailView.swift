@@ -60,7 +60,6 @@ struct ChecklistDetailView: View {
                     )
                 } else {
                     ForEach(groupedObservations) { group in
-                        // NOTE: ObservationListView will need to be updated to accept a checklist!
                         NavigationLink(destination: ObservationListView(
                             checklist: checklist,
                             genus: group.genus,
@@ -86,7 +85,22 @@ struct ChecklistDetailView: View {
             }
             // Use the date as the title, and the site name as the subtitle
             .navigationTitle(checklist.creationDate.formatted(date: .abbreviated, time: .shortened))
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // NEW: A "Principal" toolbar item sits dead center and allows us to stack text!
+                ToolbarItem(placement: .principal) {
+                    VStack {
+                        Text(checklist.creationDate.formatted(date: .abbreviated, time: .shortened))
+                            .font(.headline)
+                        
+                        if let siteName = checklist.site?.name {
+                            Text(siteName)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                
                 ToolbarItem(placement: .topBarTrailing) {
                     EditButton()
                 }
@@ -118,13 +132,14 @@ struct ChecklistDetailView: View {
                             .foregroundColor(.accentColor)
                     }
                     
-                    // 4. Map Button (Passes the site associated with this checklist)
+                    // 4. Map Button
                     if let site = checklist.site {
-                        NavigationLink(destination: SiteMapView(site: site)) {
+                        // FIXED: Now passes the checklist down to the map to filter the pins
+                        NavigationLink(destination: SiteMapView(site: site, checklist: checklist)) {
                             Image(systemName: "map")
                         }
                     } else {
-                        Spacer() // Placeholder if no site exists
+                        Spacer()
                     }
                     
                     // 5. Sort Menu

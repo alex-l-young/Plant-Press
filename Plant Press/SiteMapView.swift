@@ -4,23 +4,28 @@ import SwiftData
 
 struct SiteMapView: View {
     var site: Site
-    @State private var selectedObservation: PlantObservation?
+    // NEW: Optional checklist to filter the map
+    var checklist: Checklist? = nil
     
+    @State private var selectedObservation: PlantObservation?
     @State private var isSatelliteView = false
     
-    // NEW: Dynamically gathers every observation across all checklists for this site
+    // UPDATED: Return only the checklist's observations if one was passed in
     var allObservations: [PlantObservation] {
-        site.checklists.flatMap { $0.observations }
+        if let checklist = checklist {
+            return checklist.observations
+        }
+        return site.checklists.flatMap { $0.observations }
     }
     
-    init(site: Site, initialSelection: PlantObservation? = nil) {
+    init(site: Site, checklist: Checklist? = nil, initialSelection: PlantObservation? = nil) {
         self.site = site
+        self.checklist = checklist
         _selectedObservation = State(initialValue: initialSelection)
     }
     
     var body: some View {
         Map(selection: $selectedObservation) {
-            // FIXED: Now loops through our flattened array of all plants
             ForEach(allObservations) { obs in
                 if let lat = obs.latitude, let lon = obs.longitude {
                     Marker("\(obs.genus) \(obs.species)", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
@@ -67,7 +72,8 @@ struct SiteMapView: View {
                 .buttonStyle(.plain)
             }
         }
-        .navigationTitle("\(site.name) Map")
+        // UPDATED: Dynamic title changes depending on what we are viewing
+        .navigationTitle(checklist != nil ? "Checklist Map" : "\(site.name) Map")
         .navigationBarTitleDisplayMode(.inline)
     }
 }

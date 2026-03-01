@@ -100,18 +100,9 @@ struct ObservationListView: View {
             
             ToolbarItemGroup(placement: .bottomBar) {
                 Button(action: { showingCreateSheet = true }) {
-                    Image(systemName: "plus")
-                    Text("New Obs")
-                }
-                
-                Spacer()
-                
-                Menu {
-                    Button("Time Created") { sortOption = .byTimeCreated }
-                    Button("Alphabetical") { sortOption = .alphabetical }
-                } label: {
-                    Image(systemName: "arrow.up.arrow.down")
-                    Text("Sort")
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 36))
+                        .foregroundColor(.accentColor)
                 }
             }
         }
