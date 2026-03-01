@@ -6,7 +6,9 @@ struct ObservationCreationView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
-    var site: Site
+    // FIXED: Now relies entirely on a Checklist instead of a Site
+    var checklist: Checklist
+    
     var observationToEdit: PlantObservation?
     var initialGenus: String? = nil
     var initialSpecies: String? = nil
@@ -27,7 +29,7 @@ struct ObservationCreationView: View {
     // Camera & Library state variables
     @State private var showingCamera = false
     @State private var cameraImage: UIImage? = nil
-    @State private var showingPhotoLibrary = false // NEW: Safely triggers the photo picker
+    @State private var showingPhotoLibrary = false
     
     @State private var showingMapPicker = false
     
@@ -192,7 +194,6 @@ struct ObservationCreationView: View {
                                 .padding(.trailing, isEditingPhotos ? 8 : 0)
                             }
                             
-                            // UPDATED: Menu uses standard buttons to trigger states
                             Menu {
                                 Button(action: { showingCamera = true }) {
                                     Label("Take Photo", systemImage: "camera")
@@ -250,14 +251,14 @@ struct ObservationCreationView: View {
                 }
             }
             .fullScreenCover(isPresented: $showingMapPicker) {
-                let siteLoc = (site.latitude != nil && site.longitude != nil) ? CLLocationCoordinate2D(latitude: site.latitude!, longitude: site.longitude!) : nil
+                // FIXED: Now safely pulls the latitude and longitude from the checklist's parent site
+                let siteLoc = (checklist.site?.latitude != nil && checklist.site?.longitude != nil) ? CLLocationCoordinate2D(latitude: checklist.site!.latitude!, longitude: checklist.site!.longitude!) : nil
                 FullScreenMapView(pinLocation: $pinLocation, siteLocation: siteLoc)
             }
             .fullScreenCover(isPresented: $showingCamera) {
                 ImagePicker(selectedImage: $cameraImage)
                     .ignoresSafeArea()
             }
-            // NEW: The safe way to present the photo library in iOS
             .photosPicker(isPresented: $showingPhotoLibrary, selection: $newSelectedItems, matching: .images)
             .onChange(of: cameraImage) { oldImage, newImage in
                 if let image = newImage {
@@ -337,7 +338,8 @@ struct ObservationCreationView: View {
                 notes: notes,
                 photoData: selectedPhotoData
             )
-            newObservation.site = site
+            // FIXED: Attach the new observation to the checklist, not the site!
+            newObservation.checklist = checklist
             modelContext.insert(newObservation)
         }
         dismiss()

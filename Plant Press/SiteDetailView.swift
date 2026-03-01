@@ -12,75 +12,46 @@ struct SiteDetailView: View {
     @Bindable var site: Site
     
     // Sorting State
-    @State private var sortOption: SortOption = .alphabetical
-    enum SortOption { case alphabetical, byTime }
+    @State private var sortOption: SortOption = .byTime
+    enum SortOption { case byTime }
     
     @State private var showingEditSiteSheet = false
-    @State private var showingAddObservationSheet = false
+    @State private var showingAddChecklistSheet = false
     
     // Export State
     @State private var exportURL: URL?
     @State private var showingShareSheet = false
-    @State private var isExporting = false // NEW
-    @State private var showingExportOptions = false // NEW
+    @State private var isExporting = false
+    @State private var showingExportOptions = false
     
-    var groupedObservations: [SpeciesGroup] {
-        let dictionary = Dictionary(grouping: site.observations) { "\($0.genus)_\($0.species)" }
-        
-        let groups = dictionary.map { key, observations in
-            let first = observations.first!
-            let latestDate = observations.max(by: { $0.timestamp < $1.timestamp })?.timestamp ?? Date.distantPast
-            
-            return SpeciesGroup(
-                id: key,
-                genus: first.genus,
-                species: first.species,
-                count: observations.count,
-                observations: observations,
-                latestDate: latestDate
-            )
-        }
-        
-        switch sortOption {
-        case .alphabetical:
-            return groups.sorted { $0.genus == $1.genus ? $0.species < $1.species : $0.genus < $1.genus }
-        case .byTime:
-            return groups.sorted { $0.latestDate > $1.latestDate }
-        }
+    // FIXED: Now sorts and displays Checklists instead of flattened observations
+    var sortedChecklists: [Checklist] {
+        return site.checklists.sorted { $0.creationDate > $1.creationDate }
     }
     
     var body: some View {
-        ZStack { // NEW: ZStack wrapper
+        ZStack {
             List {
-                if groupedObservations.isEmpty {
+                if sortedChecklists.isEmpty {
                     ContentUnavailableView(
-                        "No Plants Yet",
-                        systemImage: "leaf",
-                        description: Text("Tap the + button to add your first observation.")
+                        "No Checklists Yet",
+                        systemImage: "list.clipboard",
+                        description: Text("Tap the + button to create your first checklist for this site.")
                     )
                 } else {
-                    ForEach(groupedObservations) { group in
-                        NavigationLink(destination: ObservationListView(
-                            site: site,
-                            genus: group.genus,
-                            species: group.species
-                        )) {
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text("\(group.genus) \(group.species)")
-                                        .font(.headline)
-                                        .italic()
-                                }
-                                Spacer()
-                                Text("\(group.count)")
+                    ForEach(sortedChecklists) { checklist in
+                        // Drill down into the specific checklist
+                        NavigationLink(destination: ChecklistDetailView(checklist: checklist)) {
+                            VStack(alignment: .leading) {
+                                Text(checklist.creationDate.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.headline)
+                                Text("\(checklist.observations.count) observations")
                                     .font(.subheadline)
-                                    .padding(8)
-                                    .background(Color.gray.opacity(0.2))
-                                    .clipShape(Circle())
+                                    .foregroundColor(.secondary)
                             }
                         }
                     }
-                    .onDelete(perform: deleteSpeciesGroup)
+                    .onDelete(perform: deleteChecklists)
                 }
             }
             .navigationTitle(site.name)
@@ -92,12 +63,12 @@ struct SiteDetailView: View {
                 }
                 
                 ToolbarItemGroup(placement: .bottomBar) {
-                    // 1. Safari Link (Far Left)
+                    // 1. Safari Link
                     Link(destination: URL(string: "https://newyork.plantatlas.usf.edu")!) {
                         Image(systemName: "safari")
                     }
                     
-                    // 2. Export Button (Mid Left)
+                    // 2. Export Button
                     Button(action: { showingExportOptions = true }) {
                         Image(systemName: "square.and.arrow.up")
                     }
@@ -111,22 +82,21 @@ struct SiteDetailView: View {
                         Button("Cancel", role: .cancel) {}
                     }
                     
-                    // 3. THE PRIMARY ACTION: Centered and Enlarged
-                    Button(action: { showingAddObservationSheet = true }) {
+                    // 3. THE PRIMARY ACTION: Creates a Checklist
+                    Button(action: { showingAddChecklistSheet = true }) {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 36)) // Forces the icon to be significantly larger
-                            .foregroundColor(.white) // Ensures it uses your app's main color
+                            .font(.system(size: 36))
+                            .foregroundColor(.accentColor)
                     }
                     
-                    // 4. Map Button (Mid Right)
+                    // 4. Map Button
                     NavigationLink(destination: SiteMapView(site: site)) {
                         Image(systemName: "map")
                     }
                     
-                    // 5. Sort Menu (Far Right)
+                    // 5. Sort Menu
                     Menu {
-                        Button("Time Created") { sortOption = .byTime }
-                        Button("Alphabetical") { sortOption = .alphabetical }
+                        Button("Most Recent") { sortOption = .byTime }
                     } label: {
                         Image(systemName: "arrow.up.arrow.down")
                     }
@@ -135,8 +105,9 @@ struct SiteDetailView: View {
             .sheet(isPresented: $showingEditSiteSheet) {
                 SiteCreationView(siteToEdit: site)
             }
-            .sheet(isPresented: $showingAddObservationSheet) {
-                ObservationCreationView(site: site)
+            .sheet(isPresented: $showingAddChecklistSheet) {
+                // Passes the current site down to auto-populate the selection
+                ChecklistCreationView(preselectedSite: site)
             }
             .sheet(isPresented: $showingShareSheet) {
                 if let url = exportURL {
@@ -144,7 +115,7 @@ struct SiteDetailView: View {
                 }
             }
             
-            // NEW: The Loading Overlay
+            // The Loading Overlay
             if isExporting {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
@@ -164,27 +135,25 @@ struct SiteDetailView: View {
         }
     }
     
-    private func deleteSpeciesGroup(at offsets: IndexSet) {
+    private func deleteChecklists(at offsets: IndexSet) {
         for index in offsets {
-            let group = groupedObservations[index]
-            for observation in group.observations {
-                site.modelContext?.delete(observation)
-            }
+            let checklist = sortedChecklists[index]
+            site.modelContext?.delete(checklist)
         }
     }
     
-    // NEW: Export Helper
     private func startExport(includePhotos: Bool) {
         isExporting = true
         Task {
             try? await Task.sleep(nanoseconds: 500_000_000)
-            exportURL = ExportManager.createExport(from: [site], includePhotos: includePhotos)
+            exportURL = ExportManager.createExport(from: site.checklists, includePhotos: includePhotos)
             isExporting = false
             showingShareSheet = true
         }
     }
 }
 
+// Keep this here so ChecklistDetailView can access it!
 struct SpeciesGroup: Identifiable {
     let id: String
     let genus: String

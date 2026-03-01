@@ -6,7 +6,6 @@ struct ObservationDetailView: View {
     
     @State private var showingEditSheet = false
     
-    // UPDATED: We only need one state variable now using our new wrapper
     @State private var fullScreenImageItem: ImageItem?
     
     var body: some View {
@@ -28,7 +27,8 @@ struct ObservationDetailView: View {
                 .padding(.vertical, 4)
             }
             
-            if let lat = observation.latitude, let lon = observation.longitude, let site = observation.site {
+            // FIXED: Safely unwraps the site by checking the observation's checklist first
+            if let lat = observation.latitude, let lon = observation.longitude, let site = observation.checklist?.site {
                 Section("Location") {
                     NavigationLink(destination: SiteMapView(site: site, initialSelection: observation)) {
                         VStack(alignment: .leading) {
@@ -54,7 +54,6 @@ struct ObservationDetailView: View {
                         HStack(spacing: 12) {
                             ForEach(observation.photoData, id: \.self) { data in
                                 if let uiImage = UIImage(data: data) {
-                                    // UPDATED: Simply wrap the image and pass it to the state
                                     Button(action: {
                                         fullScreenImageItem = ImageItem(image: uiImage)
                                     }) {
@@ -97,11 +96,11 @@ struct ObservationDetailView: View {
             }
         }
         .sheet(isPresented: $showingEditSheet) {
-            if let site = observation.site {
-                ObservationCreationView(site: site, observationToEdit: observation)
+            // FIXED: Now safely unwraps the checklist instead of the site to pass to the creation view
+            if let checklist = observation.checklist {
+                ObservationCreationView(checklist: checklist, observationToEdit: observation)
             }
         }
-        // UPDATED: This guarantees the view only opens when the image is fully loaded
         .fullScreenCover(item: $fullScreenImageItem) { item in
             FullScreenImageView(image: item.image)
         }

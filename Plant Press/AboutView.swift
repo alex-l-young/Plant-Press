@@ -38,19 +38,27 @@ struct AboutView: View {
                         .font(.title2)
                         .padding(.top, 10)
                     
-                    Text("A site is the top level in the organization structure and contains a single plant list. For example, a site could be a preserve or forest where you are surveying. At the bottom, there are buttons for sorting sites and exporting the plant lists from all sites.")
+                    Text("A site is the top level in the organization structure and contains all the checklists associated with that site. For example, a site could be a preserve or forest where you are surveying.")
                         .multilineTextAlignment(.leading)
                         .padding(.horizontal)
                     
-                    Text("Create a site by clicking the + button in the top right corner. You will be asked to provide a name, creation date and time, location, and optional photo.")
+                    Text("Create a site by clicking the + button at the bottom when the toggle is set to Sites. You will be asked to provide a name, creation date and time, location, and optional photo.")
                         .multilineTextAlignment(.leading)
                         .padding(.horizontal)
                     
-                    Text("Plant List")
+                    Text("Checklists")
                         .font(.title2)
                         .padding(.top, 10)
                     
-                    Text("When you click on a site, you are presented with a list of species that have been observed at that site. The buttons at the bottom allow you to navigate to the NY Flora Atlas webpage, export your plant list for that site, view a map of all observations, sort the plant list alphabetically or by date, and create a new observation.")
+                    Text("Checklists are plant lists that are timestamped and associated with an existing site.")
+                        .multilineTextAlignment(.leading)
+                        .padding(.horizontal)
+                    
+                    Text("Create a checklist by clicking the + button at the bottom when the toggle is set to Checklists. You will be asked to provide a creation date and time and the name of the associated site. If the site has not yet been created, you will be prompted to create one.")
+                        .multilineTextAlignment(.leading)
+                        .padding(.horizontal)
+                    
+                    Text("When you click on a checklist, you are presented with the list of species that have been observed. The buttons at the bottom allow you to navigate to the NY Flora Atlas webpage, export your plant list for that checklist, view a map of all observations, sort the list alphabetically or by date, and create a new observation.")
                         .multilineTextAlignment(.leading)
                         .padding(.horizontal)
                     
@@ -66,7 +74,7 @@ struct AboutView: View {
                         .multilineTextAlignment(.leading)
                         .padding(.horizontal)
                     
-                    Text("Once an observation is created, it will be filed in the plant list for the site. If the species has already been created, it will be filed as an additional observation.")
+                    Text("Once an observation is created, it will be filed in the associated checklist. If the species has already been created, it will be filed as an additional observation.")
                         .multilineTextAlignment(.leading)
                         .padding(.horizontal)
                                         

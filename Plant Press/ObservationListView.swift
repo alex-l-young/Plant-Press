@@ -11,7 +11,8 @@ import SwiftData
 struct ObservationListView: View {
     @Environment(\.modelContext) private var modelContext
     
-    let site: Site
+    // FIXED: Changed from Site to Checklist
+    let checklist: Checklist
     let genus: String
     let species: String
     
@@ -23,9 +24,10 @@ struct ObservationListView: View {
         case byTimeCreated
     }
     
-    // Dynamically filter the site's observations for this specific species
+    // Dynamically filter the checklist's observations for this specific species
     var filteredObservations: [PlantObservation] {
-        let all = site.observations.filter { $0.genus == genus && $0.species == species }
+        // FIXED: Now filters from checklist.observations
+        let all = checklist.observations.filter { $0.genus == genus && $0.species == species }
         
         switch sortOption {
         case .alphabetical:
@@ -38,6 +40,7 @@ struct ObservationListView: View {
     var body: some View {
         List {
             ForEach(filteredObservations) { observation in
+                // NOTE: ObservationDetailView will need to be updated next if it references a Site!
                 NavigationLink(destination: ObservationDetailView(observation: observation)) {
                     VStack(alignment: .leading) {
                         HStack {
@@ -113,11 +116,11 @@ struct ObservationListView: View {
             }
         }
         .sheet(isPresented: $showingCreateSheet) {
-            ObservationCreationView(site: site, initialGenus: genus, initialSpecies: species)
+            // FIXED: Now passes the checklist down to the creation form instead of a site
+            ObservationCreationView(checklist: checklist, initialGenus: genus, initialSpecies: species)
         }
     }
     
-    // This is the function that was missing!
     private func deleteObservation(offsets: IndexSet) {
         for index in offsets {
             let obs = filteredObservations[index]

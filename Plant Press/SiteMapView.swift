@@ -6,8 +6,12 @@ struct SiteMapView: View {
     var site: Site
     @State private var selectedObservation: PlantObservation?
     
-    // FIXED: Use a simple boolean to avoid MapStyle equality errors
     @State private var isSatelliteView = false
+    
+    // NEW: Dynamically gathers every observation across all checklists for this site
+    var allObservations: [PlantObservation] {
+        site.checklists.flatMap { $0.observations }
+    }
     
     init(site: Site, initialSelection: PlantObservation? = nil) {
         self.site = site
@@ -16,14 +20,14 @@ struct SiteMapView: View {
     
     var body: some View {
         Map(selection: $selectedObservation) {
-            ForEach(site.observations) { obs in
+            // FIXED: Now loops through our flattened array of all plants
+            ForEach(allObservations) { obs in
                 if let lat = obs.latitude, let lon = obs.longitude {
                     Marker("\(obs.genus) \(obs.species)", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
                         .tag(obs)
                 }
             }
         }
-        // computes the style on the fly based on the boolean
         .mapStyle(isSatelliteView ? .imagery : .standard)
         .overlay(alignment: .bottomTrailing) {
             Button(action: {

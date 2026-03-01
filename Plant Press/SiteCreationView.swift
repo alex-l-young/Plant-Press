@@ -9,6 +9,7 @@ struct SiteCreationView: View {
     @Query private var allSites: [Site]
     
     var siteToEdit: Site?
+    var initialSiteName: String = "" // Accepts the pre-filled name.
     
     @State private var siteName: String = ""
     @State private var creationDate: Date = Date()
@@ -166,6 +167,9 @@ struct SiteCreationView: View {
                     if let lat = site.latitude, let lon = site.longitude {
                         pinLocation = CLLocationCoordinate2D(latitude: lat, longitude: lon)
                     }
+                } else {
+                    // NEW: If we aren't editing, check if an initial name was passed in!
+                    siteName = initialSiteName
                 }
             }
         }

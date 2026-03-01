@@ -14,12 +14,38 @@ final class Site {
     var creationDate: Date
     var latitude: Double?
     var longitude: Double?
-    @Attribute(.externalStorage) var thumbnailData: Data? // What do I do with this line?
+    @Attribute(.externalStorage) var thumbnailData: Data?
     
-    @Relationship(deleteRule: .cascade, inverse: \PlantObservation.site)
-    var observations: [PlantObservation] = []
+    // 1. A Site owns many Checklists
+    @Relationship(deleteRule: .cascade, inverse: \Checklist.site)
+    var checklists: [Checklist] = []
     
     init(name: String, creationDate: Date = Date(), latitude: Double? = nil, longitude: Double? = nil, thumbnailData: Data? = nil) {
+        self.name = name
+        self.creationDate = creationDate
+        self.latitude = latitude
+        self.longitude = longitude
+        self.thumbnailData = thumbnailData
+    }
+}
+
+@Model
+final class Checklist {
+    var name: String
+    var creationDate: Date
+    var latitude: Double?
+    var longitude: Double?
+    @Attribute(.externalStorage) var thumbnailData: Data?
+    
+    // 2. A Checklist belongs to ONE Site
+    var site: Site?
+    
+    // 3. A Checklist owns many Observations
+    @Relationship(deleteRule: .cascade, inverse: \PlantObservation.checklist)
+    var observations: [PlantObservation] = []
+    
+    // FIXED: Removed the redundant siteName string parameter
+    init(name: String = "", creationDate: Date = Date(), latitude: Double? = nil, longitude: Double? = nil, thumbnailData: Data? = nil) {
         self.name = name
         self.creationDate = creationDate
         self.latitude = latitude
@@ -40,7 +66,10 @@ final class PlantObservation {
     var notes: String
     
     @Attribute(.externalStorage) var photoData: [Data] = []
-    var site: Site?
+    
+    // 4. An Observation belongs to ONE Checklist
+    // FIXED: Removed the direct Site relationship to enforce strict hierarchy
+    var checklist: Checklist?
     
     init(genus: String, species: String, infraspecificName: String? = nil, isVariety: Bool = true, timestamp: Date = Date(), latitude: Double? = nil, longitude: Double? = nil, notes: String = "", photoData: [Data] = []) {
         self.genus = genus
