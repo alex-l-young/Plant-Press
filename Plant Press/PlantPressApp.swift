@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct TrilliumApp: App {
+struct PlantPressApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
