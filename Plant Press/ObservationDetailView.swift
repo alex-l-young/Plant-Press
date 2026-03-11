@@ -1,12 +1,15 @@
 import SwiftUI
 import MapKit
+import UIKit // NEW: Required for UIPasteboard (copy to clipboard)
 
 struct ObservationDetailView: View {
     var observation: PlantObservation
     
     @State private var showingEditSheet = false
-    
     @State private var fullScreenImageItem: ImageItem?
+    
+    // NEW: Tracks if the coordinates were just copied to show the checkmark
+    @State private var copiedToClipboard = false
     
     var body: some View {
         List {
@@ -27,23 +30,55 @@ struct ObservationDetailView: View {
                 .padding(.vertical, 4)
             }
             
-            // FIXED: Safely unwraps the site by checking the observation's checklist first
             if let lat = observation.latitude, let lon = observation.longitude, let site = observation.checklist?.site {
                 Section("Location") {
+                    // ROW 1: The Map (Navigates to full map)
                     NavigationLink(destination: SiteMapView(site: site, initialSelection: observation)) {
-                        VStack(alignment: .leading) {
-                            Map(bounds: MapCameraBounds(minimumDistance: 500, maximumDistance: 500)) {
-                                Marker("Current", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
-                            }
-                            .frame(height: 150)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .allowsHitTesting(false)
-                            
-                            Text("Lat: \(String(format: "%.5f", lat)), Lon: \(String(format: "%.5f", lon))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 4)
+                        Map(bounds: MapCameraBounds(minimumDistance: 500, maximumDistance: 500)) {
+                            Marker("Current", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
                         }
+                        .frame(height: 150)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .allowsHitTesting(false)
+                        .padding(.vertical, 4)
+                    }
+                    
+                    // ROW 2: The Coordinate Box (Copies to clipboard)
+                    Button(action: {
+                        // 1. Copy the formatted string to the clipboard
+                        UIPasteboard.general.string = "\(lat), \(lon)"
+                        
+                        // 2. Trigger the checkmark animation
+                        withAnimation {
+                            copiedToClipboard = true
+                        }
+                        
+                        // 3. Reset the icon back to a clipboard after 2 seconds
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            withAnimation {
+                                copiedToClipboard = false
+                            }
+                        }
+                    }) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Coordinates")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                Text("\(String(format: "%.5f", lat)), \(String(format: "%.5f", lon))")
+                                    .font(.subheadline)
+                                    .foregroundColor(.primary)
+                            }
+                            
+                            Spacer()
+                            
+                            // Dynamically swaps the icon and color based on the state
+                            Image(systemName: copiedToClipboard ? "checkmark.circle.fill" : "doc.on.clipboard")
+                                .foregroundColor(copiedToClipboard ? .green : .accentColor)
+                                .font(.title3)
+                        }
+                        .padding(.vertical, 4)
                     }
                 }
             }
@@ -96,7 +131,6 @@ struct ObservationDetailView: View {
             }
         }
         .sheet(isPresented: $showingEditSheet) {
-            // FIXED: Now safely unwraps the checklist instead of the site to pass to the creation view
             if let checklist = observation.checklist {
                 ObservationCreationView(checklist: checklist, observationToEdit: observation)
             }
@@ -107,7 +141,6 @@ struct ObservationDetailView: View {
     }
 }
 
-// NEW: This tiny wrapper allows SwiftUI to uniquely identify the image being passed
 struct ImageItem: Identifiable {
     let id = UUID()
     let image: UIImage
