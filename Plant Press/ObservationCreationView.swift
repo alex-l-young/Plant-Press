@@ -6,7 +6,6 @@ struct ObservationCreationView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
-    // FIXED: Now relies entirely on a Checklist instead of a Site
     var checklist: Checklist
     
     var observationToEdit: PlantObservation?
@@ -39,6 +38,7 @@ struct ObservationCreationView: View {
     enum Field {
         case genus
         case species
+        case infra // NEW: Added focus state for infraspecific text field
     }
     
     var genusSuggestions: [String] {
@@ -50,6 +50,13 @@ struct ObservationCreationView: View {
         guard let availableSpecies = plantData.speciesByGenus[genus] else { return [] }
         if species.isEmpty { return availableSpecies }
         return availableSpecies.filter { $0.lowercased().hasPrefix(species.lowercased()) }
+    }
+    
+    // NEW: Dynamically compute available infraspecific suggestions based on the chosen species
+    var infraSuggestions: [String] {
+        guard let availableInfra = plantData.infraspecificBySpecies["\(genus) \(species)"] else { return [] }
+        if infraspecificName.isEmpty { return availableInfra }
+        return availableInfra.filter { $0.lowercased().contains(infraspecificName.lowercased()) }
     }
 
     var body: some View {
@@ -91,6 +98,7 @@ struct ObservationCreationView: View {
                         TextField("Species", text: $species)
                             .textInputAutocapitalization(.never)
                             .focused($focusedField, equals: .species)
+                            .onSubmit { focusedField = .infra } // Move to next field natively
                         
                         if focusedField == .species && !speciesSuggestions.isEmpty {
                             ScrollView {
@@ -100,7 +108,7 @@ struct ObservationCreationView: View {
                                         ForEach(speciesSuggestions, id: \.self) { suggestion in
                                             Button(action: {
                                                 species = suggestion
-                                                focusedField = nil
+                                                focusedField = .infra // Auto advance to infra field
                                             }) {
                                                 Text(suggestion)
                                                     .padding(.vertical, 8)
@@ -130,7 +138,8 @@ struct ObservationCreationView: View {
                         .tint(.secondary)
                     }
                     
-                    HStack {
+                    // FIXED: Aligned top so the picker doesn't stretch awkwardly when the dropdown expands
+                    HStack(alignment: .top) {
                         Picker("", selection: $isVariety) {
                             Text("var.").tag(true)
                             Text("ssp.").tag(false)
@@ -138,8 +147,46 @@ struct ObservationCreationView: View {
                         .pickerStyle(.segmented)
                         .frame(width: 100)
                         
-                        TextField("Name (optional)", text: $infraspecificName)
-                            .textInputAutocapitalization(.never)
+                        VStack(alignment: .leading, spacing: 0) {
+                            TextField("Infraspecific Name", text: $infraspecificName)
+                                .textInputAutocapitalization(.never)
+                                .focused($focusedField, equals: .infra)
+                            
+                            // NEW: Dropdown list for infraspecific suggestions
+                            if focusedField == .infra && !infraSuggestions.isEmpty {
+                                ScrollView {
+                                    ScrollViewReader { proxy in
+                                        LazyVStack(alignment: .leading) {
+                                            EmptyView().id("infraTop")
+                                            ForEach(infraSuggestions, id: \.self) { suggestion in
+                                                Button(action: {
+                                                    selectInfra(suggestion)
+                                                }) {
+                                                    Text(suggestion)
+                                                        .padding(.vertical, 8)
+                                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                                        .foregroundColor(.blue)
+                                                }
+                                                .buttonStyle(.plain)
+                                                Divider()
+                                            }
+                                        }
+                                        .onChange(of: infraspecificName) { _, _ in proxy.scrollTo("infraTop", anchor: .top) }
+                                    }
+                                }
+                                .frame(maxHeight: 150)
+                            }
+                        }
+                    }
+                    .onChange(of: species) { _, newSpecies in
+                        // NEW: Automatically defaults the toggle based on the species' available infraspecific options
+                        if let available = plantData.infraspecificBySpecies["\(genus) \(newSpecies)"] {
+                            if available.allSatisfy({ $0.hasPrefix("ssp.") }) {
+                                isVariety = false
+                            } else if available.allSatisfy({ $0.hasPrefix("var.") }) {
+                                isVariety = true
+                            }
+                        }
                     }
                 }
                 
@@ -251,7 +298,6 @@ struct ObservationCreationView: View {
                 }
             }
             .fullScreenCover(isPresented: $showingMapPicker) {
-                // FIXED: Now safely pulls the latitude and longitude from the checklist's parent site
                 let siteLoc = (checklist.site?.latitude != nil && checklist.site?.longitude != nil) ? CLLocationCoordinate2D(latitude: checklist.site!.latitude!, longitude: checklist.site!.longitude!) : nil
                 FullScreenMapView(pinLocation: $pinLocation, siteLocation: siteLoc)
             }
@@ -306,6 +352,20 @@ struct ObservationCreationView: View {
         }
     }
     
+    // NEW: Handles parsing the infraspecific string and properly assigning it
+    private func selectInfra(_ suggestion: String) {
+        if suggestion.hasPrefix("var. ") {
+            isVariety = true
+            infraspecificName = String(suggestion.dropFirst(5))
+        } else if suggestion.hasPrefix("ssp. ") {
+            isVariety = false
+            infraspecificName = String(suggestion.dropFirst(5))
+        } else {
+            infraspecificName = suggestion
+        }
+        focusedField = nil
+    }
+    
     private func removePhoto(at index: Int) {
         if index >= 0 && index < selectedImages.count {
             selectedImages.remove(at: index)
@@ -338,7 +398,6 @@ struct ObservationCreationView: View {
                 notes: notes,
                 photoData: selectedPhotoData
             )
-            // FIXED: Attach the new observation to the checklist, not the site!
             newObservation.checklist = checklist
             modelContext.insert(newObservation)
         }
