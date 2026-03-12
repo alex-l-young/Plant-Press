@@ -69,7 +69,6 @@ struct ContentView: View {
                 ZStack {
                     List {
                         if selectedTab == .sites {
-                            // FIXED: Added Empty State for Sites
                             if sortedSites.isEmpty {
                                 ContentUnavailableView(
                                     "No Sites Yet",
@@ -77,7 +76,6 @@ struct ContentView: View {
                                     description: Text("Tap the + button to add your first site.")
                                 )
                             } else {
-                                // --- SITES LIST ---
                                 ForEach(sortedSites) { site in
                                     NavigationLink(destination: SiteDetailView(site: site)) {
                                         HStack {
@@ -108,7 +106,6 @@ struct ContentView: View {
                             }
                             
                         } else {
-                            // FIXED: Added Empty State for Checklists
                             if sortedChecklists.isEmpty {
                                 ContentUnavailableView(
                                     "No Checklists Yet",
@@ -116,7 +113,6 @@ struct ContentView: View {
                                     description: Text("Tap the + button to add your first checklist.")
                                 )
                             } else {
-                                // --- CHECKLISTS LIST ---
                                 ForEach(sortedChecklists) { checklist in
                                     NavigationLink(destination: ChecklistDetailView(checklist: checklist)) {
                                         HStack {
@@ -154,40 +150,57 @@ struct ContentView: View {
                                 Image(systemName: "info.circle")
                             }
                         }
-                        
-                        ToolbarItemGroup(placement: .bottomBar) {
-                            Button(action: { showingExportOptions = true }) {
-                                Image(systemName: "square.and.arrow.up")
-                            }
-                            .confirmationDialog("Export Options", isPresented: $showingExportOptions, titleVisibility: .visible) {
-                                Button("Export Data Only (CSV)") {
-                                    startExport(includePhotos: false)
-                                }
-                                Button("Export Data + Photos (Folder)") {
-                                    startExport(includePhotos: true)
-                                }
-                                Button("Cancel", role: .cancel) {}
-                            }
+                    }
+                    .safeAreaInset(edge: .bottom) {
+                        VStack(spacing: 0) {
+                            Divider()
                             
-                            Button(action: {
-                                if selectedTab == .sites {
-                                    showingAddSiteSheet = true
-                                } else {
-                                    showingAddChecklistSheet = true
+                            HStack {
+                                Spacer()
+                                // 1. Export Button
+                                Button(action: { showingExportOptions = true }) {
+                                    ToolbarIconView(icon: "square.and.arrow.up", text: "Export")
                                 }
-                            }) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 36))
-                                    .foregroundColor(.accentColor)
+                                .confirmationDialog("Export Options", isPresented: $showingExportOptions, titleVisibility: .visible) {
+                                    Button("Export Data Only (CSV)") { startExport(includePhotos: false) }
+                                    Button("Export Data + Photos (Folder)") { startExport(includePhotos: true) }
+                                    Button("Cancel", role: .cancel) {}
+                                }
+                                
+                                Spacer()
+                                Spacer()
+                                
+                                // 2. Add Button
+                                Button(action: {
+                                    if selectedTab == .sites {
+                                        showingAddSiteSheet = true
+                                    } else {
+                                        showingAddChecklistSheet = true
+                                    }
+                                }) {
+                                    ToolbarIconView(icon: "plus.circle.fill", text: selectedTab == .sites ? "New Site" : "New List", isProminent: true)
+                                }
+                                .offset(y: -4)
+                                
+                                Spacer()
+                                Spacer()
+                                
+                                // 3. Sort Button
+                                Button(action: { showingSortOptions = true }) {
+                                    ToolbarIconView(icon: "arrow.up.arrow.down", text: "Sort")
+                                }
+                                .confirmationDialog("Sort By", isPresented: $showingSortOptions, titleVisibility: .visible) {
+                                    Button("Time Created") { sortOption = .byTimeCreated }
+                                    Button("Alphabetical") { sortOption = .alphabetical }
+                                    Button("Cancel", role: .cancel) {}
+                                }
+                                Spacer()
                             }
-                            
-                            Menu {
-                                Button("Time Created") { sortOption = .byTimeCreated }
-                                Button("Alphabetical") { sortOption = .alphabetical }
-                            } label: {
-                                Image(systemName: "arrow.up.arrow.down")
-                            }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 10)
+                            .padding(.bottom, 5)
                         }
+                        .background(.regularMaterial)
                     }
                     .sheet(isPresented: $showingAbout) {
                         AboutView()
@@ -256,7 +269,6 @@ struct ContentView: View {
     }
 }
 
-// A bridge to Apple's native share menu for exporting files
 struct ShareSheet: UIViewControllerRepresentable {
     var items: [Any]
     
@@ -264,6 +276,25 @@ struct ShareSheet: UIViewControllerRepresentable {
         let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
         return controller
     }
-    
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+struct ToolbarIconView: View {
+    let icon: String
+    let text: String
+    var isProminent: Bool = false
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: isProminent ? 34 : 22))
+                .foregroundColor(isProminent ? .accentColor : .secondary)
+            
+            Text(text)
+                .font(.caption2)
+                .foregroundColor(isProminent ? .accentColor : .secondary)
+                .bold(isProminent)
+        }
+        .frame(minWidth: 50)
+    }
 }

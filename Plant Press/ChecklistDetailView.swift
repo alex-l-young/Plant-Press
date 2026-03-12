@@ -9,20 +9,23 @@ import SwiftUI
 import SwiftData
 
 struct ChecklistDetailView: View {
+    @Environment(\.editMode) private var editMode
     @Bindable var checklist: Checklist
     
-    // Sorting State
     @State private var sortOption: SortOption = .alphabetical
     enum SortOption { case alphabetical, byTime }
     
     @State private var showingEditChecklistSheet = false
     @State private var showingAddObservationSheet = false
     
-    // Export State
+    // Export & Sort States
     @State private var exportURL: URL?
     @State private var showingShareSheet = false
     @State private var isExporting = false
     @State private var showingExportOptions = false
+    @State private var showingSortOptions = false // NEW
+    
+    @State private var selectedGroups = Set<String>()
     
     var groupedObservations: [SpeciesGroup] {
         let dictionary = Dictionary(grouping: checklist.observations) { "\($0.genus)_\($0.species)" }
@@ -51,7 +54,7 @@ struct ChecklistDetailView: View {
     
     var body: some View {
         ZStack {
-            List {
+            List(selection: $selectedGroups) {
                 if groupedObservations.isEmpty {
                     ContentUnavailableView(
                         "No Plants Yet",
@@ -83,11 +86,9 @@ struct ChecklistDetailView: View {
                     .onDelete(perform: deleteSpeciesGroup)
                 }
             }
-            // Use the date as the title, and the site name as the subtitle
             .navigationTitle(checklist.creationDate.formatted(date: .abbreviated, time: .shortened))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // NEW: A "Principal" toolbar item sits dead center and allows us to stack text!
                 ToolbarItem(placement: .principal) {
                     VStack {
                         Text(checklist.creationDate.formatted(date: .abbreviated, time: .shortened))
@@ -104,59 +105,84 @@ struct ChecklistDetailView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     EditButton()
                 }
-                
-                ToolbarItemGroup(placement: .bottomBar) {
-                    // 1. Safari Link
-                    Link(destination: URL(string: "https://newyork.plantatlas.usf.edu")!) {
-                        Image(systemName: "safari")
-                    }
+            }
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 0) {
+                    Divider()
                     
-                    // 2. Export Button
-                    Button(action: { showingExportOptions = true }) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                    .confirmationDialog("Export Options", isPresented: $showingExportOptions, titleVisibility: .visible) {
-                        Button("Export Data Only (CSV)") {
-                            startExport(includePhotos: false)
+                    HStack {
+                        if editMode?.wrappedValue.isEditing == true {
+                            Spacer()
+                            Text("\(selectedGroups.count) Selected")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            
+                            Button(action: deleteSelectedGroups) {
+                                ToolbarIconView(icon: "trash", text: "Delete")
+                                    .foregroundColor(selectedGroups.isEmpty ? .gray : .red)
+                            }
+                            .disabled(selectedGroups.isEmpty)
+                            
+                        } else {
+                            // 1. Atlas
+                            Link(destination: URL(string: "https://newyork.plantatlas.usf.edu")!) {
+                                ToolbarIconView(icon: "safari", text: "Atlas")
+                            }
+                            Spacer()
+                            
+                            // 2. Export Button
+                            Button(action: { showingExportOptions = true }) {
+                                ToolbarIconView(icon: "square.and.arrow.up", text: "Export")
+                            }
+                            .confirmationDialog("Export Options", isPresented: $showingExportOptions, titleVisibility: .visible) {
+                                Button("Export Data Only (CSV)") { startExport(includePhotos: false) }
+                                Button("Export Data + Photos (Folder)") { startExport(includePhotos: true) }
+                                Button("Cancel", role: .cancel) {}
+                            }
+                            
+                            Spacer()
+                            
+                            // 3. Add Obs Button
+                            Button(action: { showingAddObservationSheet = true }) {
+                                ToolbarIconView(icon: "plus.circle.fill", text: "Add Obs", isProminent: true)
+                            }
+                            .offset(y: -4)
+                            
+                            Spacer()
+                            
+                            // 4. Map Button
+                            if let site = checklist.site {
+                                NavigationLink(destination: SiteMapView(site: site)) {
+                                    ToolbarIconView(icon: "map", text: "Map")
+                                }
+                            } else {
+                                Color.clear.frame(width: 50, height: 50)
+                            }
+                            
+                            Spacer()
+                            
+                            // 5. Sort Button
+                            Button(action: { showingSortOptions = true }) {
+                                ToolbarIconView(icon: "arrow.up.arrow.down", text: "Sort")
+                            }
+                            .confirmationDialog("Sort By", isPresented: $showingSortOptions, titleVisibility: .visible) {
+                                Button("Time Created") { sortOption = .byTime }
+                                Button("Alphabetical") { sortOption = .alphabetical }
+                                Button("Cancel", role: .cancel) {}
+                            }
                         }
-                        Button("Export Data + Photos (Folder)") {
-                            startExport(includePhotos: true)
-                        }
-                        Button("Cancel", role: .cancel) {}
                     }
-                    
-                    // 3. THE PRIMARY ACTION
-                    Button(action: { showingAddObservationSheet = true }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 36))
-                            .foregroundColor(.accentColor)
-                    }
-                    
-                    // 4. Map Button
-                    if let site = checklist.site {
-                        // FIXED: Now passes the checklist down to the map to filter the pins
-                        NavigationLink(destination: SiteMapView(site: site, checklist: checklist)) {
-                            Image(systemName: "map")
-                        }
-                    } else {
-                        Spacer()
-                    }
-                    
-                    // 5. Sort Menu
-                    Menu {
-                        Button("Time Created") { sortOption = .byTime }
-                        Button("Alphabetical") { sortOption = .alphabetical }
-                    } label: {
-                        Image(systemName: "arrow.up.arrow.down")
-                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    .padding(.bottom, 5)
                 }
+                .background(.regularMaterial)
             }
             .sheet(isPresented: $showingEditChecklistSheet) {
-                // NOTE: ChecklistCreationView will need a checklistToEdit property to support editing
                 ChecklistCreationView(checklistToEdit: checklist)
             }
             .sheet(isPresented: $showingAddObservationSheet) {
-                // NOTE: ObservationCreationView needs to accept a checklist instead of a site
                 ObservationCreationView(checklist: checklist)
             }
             .sheet(isPresented: $showingShareSheet) {
@@ -165,7 +191,6 @@ struct ChecklistDetailView: View {
                 }
             }
             
-            // The Loading Overlay
             if isExporting {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
@@ -194,6 +219,18 @@ struct ChecklistDetailView: View {
         }
     }
     
+    private func deleteSelectedGroups() {
+        for groupId in selectedGroups {
+            if let group = groupedObservations.first(where: { $0.id == groupId }) {
+                for observation in group.observations {
+                    checklist.modelContext?.delete(observation)
+                }
+            }
+        }
+        selectedGroups.removeAll()
+        editMode?.wrappedValue = .inactive
+    }
+    
     private func startExport(includePhotos: Bool) {
         isExporting = true
         Task {
@@ -204,4 +241,13 @@ struct ChecklistDetailView: View {
             showingShareSheet = true
         }
     }
+}
+
+struct SpeciesGroup: Identifiable {
+    let id: String
+    let genus: String
+    let species: String
+    let count: Int
+    let observations: [PlantObservation]
+    let latestDate: Date
 }

@@ -97,14 +97,25 @@ struct ObservationListView: View {
         .navigationTitle("\(genus) \(species)")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { EditButton() }
-            
-            ToolbarItemGroup(placement: .bottomBar) {
-                Button(action: { showingCreateSheet = true }) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 36))
-                        .foregroundColor(.accentColor)
+        }
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 0) {
+                Divider() // Adds a crisp line separating the list from the bar
+                
+                HStack {
+                    Spacer()
+                    Button(action: { showingCreateSheet = true }) {
+                        ToolbarIconView(icon: "plus.circle.fill", text: "Add Obs", isProminent: true)
+                    }
+                    // Bumps the big button up slightly to make it pop!
+                    .offset(y: -4)
+                    Spacer()
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+                .padding(.bottom, 5) // Extra padding for devices without home indicators
             }
+            .background(.regularMaterial) // Gives it that native Apple blurred glass look
         }
         .sheet(isPresented: $showingCreateSheet) {
             // FIXED: Now passes the checklist down to the creation form instead of a site
