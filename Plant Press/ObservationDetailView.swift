@@ -1,6 +1,6 @@
 import SwiftUI
 import MapKit
-import UIKit // NEW: Required for UIPasteboard (copy to clipboard)
+import UIKit // Required for UIPasteboard (copy to clipboard)
 
 struct ObservationDetailView: View {
     var observation: PlantObservation
@@ -8,7 +8,7 @@ struct ObservationDetailView: View {
     @State private var showingEditSheet = false
     @State private var fullScreenImageItem: ImageItem?
     
-    // NEW: Tracks if the coordinates were just copied to show the checkmark
+    // Tracks if the coordinates were just copied to show the checkmark
     @State private var copiedToClipboard = false
     
     var body: some View {
@@ -45,15 +45,15 @@ struct ObservationDetailView: View {
                     
                     // ROW 2: The Coordinate Box (Copies to clipboard)
                     Button(action: {
-                        // 1. Copy the formatted string to the clipboard
-                        UIPasteboard.general.string = "\(lat), \(lon)"
+                        // FIXED: Format the coordinates to 6 decimal places for the clipboard
+                        UIPasteboard.general.string = String(format: "%.6f, %.6f", lat, lon)
                         
-                        // 2. Trigger the checkmark animation
+                        // Trigger the checkmark animation
                         withAnimation {
                             copiedToClipboard = true
                         }
                         
-                        // 3. Reset the icon back to a clipboard after 2 seconds
+                        // Reset the icon back to a clipboard after 2 seconds
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                             withAnimation {
                                 copiedToClipboard = false
@@ -66,7 +66,8 @@ struct ObservationDetailView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 
-                                Text("\(String(format: "%.5f", lat)), \(String(format: "%.5f", lon))")
+                                // FIXED: Updated the visual text to also show 6 decimal places for consistency
+                                Text("\(String(format: "%.6f", lat)), \(String(format: "%.6f", lon))")
                                     .font(.subheadline)
                                     .foregroundColor(.primary)
                             }

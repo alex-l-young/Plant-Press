@@ -2,7 +2,6 @@ import SwiftUI
 import SwiftData
 
 struct ExportManager {
-    // FIXED: Now accepts Checklists instead of Sites
     static func createExport(from checklists: [Checklist], includePhotos: Bool) -> URL? {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd_HHmmss"
@@ -24,7 +23,6 @@ struct ExportManager {
             exportURL = tempDir.appendingPathComponent("\(baseName).csv")
         }
         
-        // NEW: Added Checklist Date to the CSV
         var csvString = "Site Name,Checklist Date,Genus,Species,Type,Infraspecific Name,Latitude,Longitude,Date,Notes,Photos\n"
         
         for checklist in checklists {
@@ -33,29 +31,36 @@ struct ExportManager {
             let sName = siteName.replacingOccurrences(of: ",", with: " ")
             let cleanSiteName = sName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "-")
             
-            // Format the checklist date for the CSV
+            // Format the checklist date for the CSV and Folder Name
             let cDateCSV = checklist.creationDate.formatted(date: .numeric, time: .shortened).replacingOccurrences(of: ",", with: "")
+            let checklistDateStr = formatter.string(from: checklist.creationDate)
+            
+            // NEW: Define the checklist-specific folder
+            let checklistFolderName = "Checklist_\(checklistDateStr)"
             
             let sitePhotosDir = exportURL
                 .appendingPathComponent("Photos", isDirectory: true)
                 .appendingPathComponent(cleanSiteName, isDirectory: true)
             
-            // Export the Site Thumbnail
+            // NEW: The specific path for this checklist's photos
+            let checklistPhotosDir = sitePhotosDir
+                .appendingPathComponent(checklistFolderName, isDirectory: true)
+            
+            // Export the Site Thumbnail (Stays at the Site folder level)
             if includePhotos, let siteData = checklist.site?.thumbnailData {
                 try? FileManager.default.createDirectory(at: sitePhotosDir, withIntermediateDirectories: true)
                 let siteThumbURL = sitePhotosDir.appendingPathComponent("\(cleanSiteName)_Thumbnail.jpg")
                 
-                // Only write if it doesn't already exist (prevents overwriting the exact same file 10 times if exporting multiple checklists for one site)
+                // Only write if it doesn't already exist
                 if !FileManager.default.fileExists(atPath: siteThumbURL.path) {
                     try? siteData.write(to: siteThumbURL)
                 }
             }
             
-            // Export the Checklist Thumbnail
+            // Export the Checklist Thumbnail (Moves into the Checklist folder)
             if includePhotos, let checklistData = checklist.thumbnailData {
-                try? FileManager.default.createDirectory(at: sitePhotosDir, withIntermediateDirectories: true)
-                let checklistDateStr = formatter.string(from: checklist.creationDate)
-                let checklistThumbURL = sitePhotosDir.appendingPathComponent("\(cleanSiteName)_Checklist_\(checklistDateStr).jpg")
+                try? FileManager.default.createDirectory(at: checklistPhotosDir, withIntermediateDirectories: true)
+                let checklistThumbURL = checklistPhotosDir.appendingPathComponent("\(cleanSiteName)_Checklist_\(checklistDateStr).jpg")
                 try? checklistData.write(to: checklistThumbURL)
             }
             
@@ -65,8 +70,11 @@ struct ExportManager {
                 let species = obs.species.replacingOccurrences(of: ",", with: " ")
                 let infraType = obs.infraspecificName != nil ? (obs.isVariety ? "var." : "ssp.") : ""
                 let infraName = obs.infraspecificName?.replacingOccurrences(of: ",", with: " ") ?? ""
-                let lat = obs.latitude?.description ?? ""
-                let lon = obs.longitude?.description ?? ""
+                
+                // FIXED: Rounds coordinates perfectly to 6 decimal places
+                let lat = obs.latitude != nil ? String(format: "%.6f", obs.latitude!) : ""
+                let lon = obs.longitude != nil ? String(format: "%.6f", obs.longitude!) : ""
+                
                 let date = obs.timestamp.formatted(date: .numeric, time: .shortened).replacingOccurrences(of: ",", with: "")
                 let notes = obs.notes.replacingOccurrences(of: ",", with: " ").replacingOccurrences(of: "\n", with: " ")
                 
@@ -87,7 +95,8 @@ struct ExportManager {
                 var photosColumn = ""
                 
                 if includePhotos && !obs.photoData.isEmpty {
-                    let specificObsDir = sitePhotosDir
+                    // FIXED: Uses the new checklist folder as the base directory for plant photos
+                    let specificObsDir = checklistPhotosDir
                         .appendingPathComponent(genusSpeciesBase, isDirectory: true)
                         .appendingPathComponent(safeObservationName, isDirectory: true)
                     
@@ -100,7 +109,8 @@ struct ExportManager {
                             try data.write(to: photoURL)
                         }
                         
-                        photosColumn = "Photos/\(cleanSiteName)/\(genusSpeciesBase)/\(safeObservationName)"
+                        // FIXED: Updates the CSV column to accurately map to the new checklist folder
+                        photosColumn = "Photos/\(cleanSiteName)/\(checklistFolderName)/\(genusSpeciesBase)/\(safeObservationName)"
                         
                     } catch {
                         print("Failed to write photos for \(safeObservationName): \(error)")
