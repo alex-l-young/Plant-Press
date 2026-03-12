@@ -69,63 +69,78 @@ struct ContentView: View {
                 ZStack {
                     List {
                         if selectedTab == .sites {
-                            // --- SITES LIST ---
-                            ForEach(sortedSites) { site in
-                                NavigationLink(destination: SiteDetailView(site: site)) {
-                                    HStack {
-                                        if let data = site.thumbnailData, let uiImage = UIImage(data: data) {
-                                            Image(uiImage: uiImage)
-                                                .resizable()
-                                                .scaledToFill()
-                                                .frame(width: 50, height: 50)
-                                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                        } else {
-                                            Image(systemName: "leaf.circle.fill")
-                                                .resizable()
-                                                .frame(width: 50, height: 50)
-                                                .foregroundColor(.green)
-                                        }
-                                        
-                                        VStack(alignment: .leading) {
-                                            Text(site.name)
-                                                .font(.headline)
-                                            // FIXED: Added the checklist count subheader
-                                            Text("\(site.checklists.count) checklist\(site.checklists.count == 1 ? "" : "s")")
-                                                .font(.subheadline)
-                                                .foregroundColor(.secondary)
+                            // FIXED: Added Empty State for Sites
+                            if sortedSites.isEmpty {
+                                ContentUnavailableView(
+                                    "No Sites Yet",
+                                    systemImage: "map",
+                                    description: Text("Tap the + button to add your first site.")
+                                )
+                            } else {
+                                // --- SITES LIST ---
+                                ForEach(sortedSites) { site in
+                                    NavigationLink(destination: SiteDetailView(site: site)) {
+                                        HStack {
+                                            if let data = site.thumbnailData, let uiImage = UIImage(data: data) {
+                                                Image(uiImage: uiImage)
+                                                    .resizable()
+                                                    .scaledToFill()
+                                                    .frame(width: 50, height: 50)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                            } else {
+                                                Image(systemName: "leaf.circle.fill")
+                                                    .resizable()
+                                                    .frame(width: 50, height: 50)
+                                                    .foregroundColor(.green)
+                                            }
+                                            
+                                            VStack(alignment: .leading) {
+                                                Text(site.name)
+                                                    .font(.headline)
+                                                Text("\(site.checklists.count) checklist\(site.checklists.count == 1 ? "" : "s")")
+                                                    .font(.subheadline)
+                                                    .foregroundColor(.secondary)
+                                            }
                                         }
                                     }
                                 }
+                                .onDelete(perform: deleteSites)
                             }
-                            .onDelete(perform: deleteSites)
                             
                         } else {
-                            // --- CHECKLISTS LIST ---
-                            ForEach(sortedChecklists) { checklist in
-                                NavigationLink(destination: ChecklistDetailView(checklist: checklist)) {
-                                    // FIXED: Wrapped in an HStack to push the badge to the right
-                                    HStack {
-                                        VStack(alignment: .leading) {
-                                            Text(checklist.creationDate.formatted(date: .abbreviated, time: .shortened))
-                                                .font(.headline)
+                            // FIXED: Added Empty State for Checklists
+                            if sortedChecklists.isEmpty {
+                                ContentUnavailableView(
+                                    "No Checklists Yet",
+                                    systemImage: "list.clipboard",
+                                    description: Text("Tap the + button to add your first checklist.")
+                                )
+                            } else {
+                                // --- CHECKLISTS LIST ---
+                                ForEach(sortedChecklists) { checklist in
+                                    NavigationLink(destination: ChecklistDetailView(checklist: checklist)) {
+                                        HStack {
+                                            VStack(alignment: .leading) {
+                                                Text(checklist.creationDate.formatted(date: .abbreviated, time: .shortened))
+                                                    .font(.headline)
+                                                
+                                                Text(checklist.site?.name ?? "No Site Selected")
+                                                    .font(.subheadline)
+                                                    .foregroundColor(.secondary)
+                                            }
                                             
-                                            Text(checklist.site?.name ?? "No Site Selected")
+                                            Spacer()
+                                            
+                                            Text("\(checklist.observations.count)")
                                                 .font(.subheadline)
-                                                .foregroundColor(.secondary)
+                                                .padding(8)
+                                                .background(Color.gray.opacity(0.2))
+                                                .clipShape(Circle())
                                         }
-                                        
-                                        Spacer()
-                                        
-                                        // FIXED: Added the observation count badge
-                                        Text("\(checklist.observations.count)")
-                                            .font(.subheadline)
-                                            .padding(8)
-                                            .background(Color.gray.opacity(0.2))
-                                            .clipShape(Circle())
                                     }
                                 }
+                                .onDelete(perform: deleteChecklists)
                             }
-                            .onDelete(perform: deleteChecklists)
                         }
                     }
                     .navigationTitle(selectedTab == .sites ? "Sites" : "Checklists")
