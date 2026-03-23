@@ -26,56 +26,53 @@ struct ExportManager {
         var csvString = "Site Name,Checklist Date,Genus,Species,Type,Infraspecific Name,Latitude,Longitude,Date,Notes,Photos\n"
         
         for checklist in checklists {
-            // Safely grab the site name from the checklist
             let siteName = checklist.site?.name ?? "Unknown Site"
             let sName = siteName.replacingOccurrences(of: ",", with: " ")
             let cleanSiteName = sName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "-")
             
-            // Format the checklist date for the CSV and Folder Name
-            let cDateCSV = checklist.creationDate.formatted(date: .numeric, time: .shortened).replacingOccurrences(of: ",", with: "")
+            // FIXED: Strips out the Narrow No-Break Space (\u{202F}) that causes the ‚ÄØ glitch in Excel
+            let cDateCSV = checklist.creationDate.formatted(date: .numeric, time: .shortened)
+                .replacingOccurrences(of: ",", with: "")
+                .replacingOccurrences(of: "\u{202F}", with: " ")
+                .replacingOccurrences(of: "\u{00A0}", with: " ")
+                
             let checklistDateStr = formatter.string(from: checklist.creationDate)
             
-            // NEW: Define the checklist-specific folder
             let checklistFolderName = "Checklist_\(checklistDateStr)"
             
             let sitePhotosDir = exportURL
                 .appendingPathComponent("Photos", isDirectory: true)
                 .appendingPathComponent(cleanSiteName, isDirectory: true)
             
-            // NEW: The specific path for this checklist's photos
             let checklistPhotosDir = sitePhotosDir
                 .appendingPathComponent(checklistFolderName, isDirectory: true)
             
-            // Export the Site Thumbnail (Stays at the Site folder level)
-            if includePhotos, let siteData = checklist.site?.thumbnailData {
-                try? FileManager.default.createDirectory(at: sitePhotosDir, withIntermediateDirectories: true)
-                let siteThumbURL = sitePhotosDir.appendingPathComponent("\(cleanSiteName)_Thumbnail.jpg")
+            if includePhotos {
+                try? FileManager.default.createDirectory(at: checklistPhotosDir, withIntermediateDirectories: true)
                 
-                // Only write if it doesn't already exist
-                if !FileManager.default.fileExists(atPath: siteThumbURL.path) {
-                    try? siteData.write(to: siteThumbURL)
+                if let siteData = checklist.site?.thumbnailData {
+                    let siteThumbURL = sitePhotosDir.appendingPathComponent("\(cleanSiteName)_Thumbnail.jpg")
+                    if !FileManager.default.fileExists(atPath: siteThumbURL.path) {
+                        try? siteData.write(to: siteThumbURL)
+                    }
                 }
             }
             
-            // Export the Checklist Thumbnail (Moves into the Checklist folder)
-            if includePhotos, let checklistData = checklist.thumbnailData {
-                try? FileManager.default.createDirectory(at: checklistPhotosDir, withIntermediateDirectories: true)
-                let checklistThumbURL = checklistPhotosDir.appendingPathComponent("\(cleanSiteName)_Checklist_\(checklistDateStr).jpg")
-                try? checklistData.write(to: checklistThumbURL)
-            }
-            
-            // Loop through observations
             for obs in checklist.observations {
                 let genus = obs.genus.replacingOccurrences(of: ",", with: " ")
                 let species = obs.species.replacingOccurrences(of: ",", with: " ")
                 let infraType = obs.infraspecificName != nil ? (obs.isVariety ? "var." : "ssp.") : ""
                 let infraName = obs.infraspecificName?.replacingOccurrences(of: ",", with: " ") ?? ""
                 
-                // FIXED: Rounds coordinates perfectly to 6 decimal places
                 let lat = obs.latitude != nil ? String(format: "%.6f", obs.latitude!) : ""
                 let lon = obs.longitude != nil ? String(format: "%.6f", obs.longitude!) : ""
                 
-                let date = obs.timestamp.formatted(date: .numeric, time: .shortened).replacingOccurrences(of: ",", with: "")
+                // FIXED: Strips out the Narrow No-Break Space for the observation dates as well
+                let date = obs.timestamp.formatted(date: .numeric, time: .shortened)
+                    .replacingOccurrences(of: ",", with: "")
+                    .replacingOccurrences(of: "\u{202F}", with: " ")
+                    .replacingOccurrences(of: "\u{00A0}", with: " ")
+                    
                 let notes = obs.notes.replacingOccurrences(of: ",", with: " ").replacingOccurrences(of: "\n", with: " ")
                 
                 let genusSpeciesBase = "\(genus)_\(species)"
@@ -94,8 +91,7 @@ struct ExportManager {
                 let safeObservationName = observationBaseName.replacingOccurrences(of: " ", with: "_")
                 var photosColumn = ""
                 
-                if includePhotos && !obs.photoData.isEmpty {
-                    // FIXED: Uses the new checklist folder as the base directory for plant photos
+                if includePhotos {
                     let specificObsDir = checklistPhotosDir
                         .appendingPathComponent(genusSpeciesBase, isDirectory: true)
                         .appendingPathComponent(safeObservationName, isDirectory: true)
@@ -103,32 +99,37 @@ struct ExportManager {
                     do {
                         try FileManager.default.createDirectory(at: specificObsDir, withIntermediateDirectories: true)
                         
-                        for (index, data) in obs.photoData.enumerated() {
-                            let photoName = "\(safeObservationName)_\(index + 1).jpg"
-                            let photoURL = specificObsDir.appendingPathComponent(photoName)
-                            try data.write(to: photoURL)
+                        if !obs.photoData.isEmpty {
+                            for (index, data) in obs.photoData.enumerated() {
+                                let photoName = "\(safeObservationName)_\(index + 1).jpg"
+                                let photoURL = specificObsDir.appendingPathComponent(photoName)
+                                try data.write(to: photoURL)
+                            }
                         }
-                        
-                        // FIXED: Updates the CSV column to accurately map to the new checklist folder
                         photosColumn = "Photos/\(cleanSiteName)/\(checklistFolderName)/\(genusSpeciesBase)/\(safeObservationName)"
                         
                     } catch {
-                        print("Failed to write photos for \(safeObservationName): \(error)")
+                        print("Failed to write photos/folders for \(safeObservationName): \(error)")
                     }
                 }
                 
-                // Add to CSV
                 csvString.append("\(sName),\(cDateCSV),\(genus),\(species),\(infraType),\(infraName),\(lat),\(lon),\(date),\(notes),\(photosColumn)\n")
             }
         }
         
         do {
+            // FIXED: Add a UTF-8 BOM (Byte Order Mark) so Excel automatically reads all special characters perfectly
+            var csvData = Data([0xEF, 0xBB, 0xBF])
+            if let stringData = csvString.data(using: .utf8) {
+                csvData.append(stringData)
+            }
+            
             if includePhotos {
                 let csvURL = exportURL.appendingPathComponent("\(baseName).csv")
-                try csvString.write(to: csvURL, atomically: true, encoding: .utf8)
+                try csvData.write(to: csvURL, options: .atomic)
                 return exportURL
             } else {
-                try csvString.write(to: exportURL, atomically: true, encoding: .utf8)
+                try csvData.write(to: exportURL, options: .atomic)
                 return exportURL
             }
         } catch {
